@@ -39,8 +39,13 @@ class ApiClient {
             let errorMsg = "Request error";
             if (data !== null && data.message) errorMsg = data.message;
             if (data !== null && data.error) errorMsg = data.error;
+            if (data !== null && data.reason) errorMsg = data.reason;
             
-            throw new Error(errorMsg);
+            const error = new Error(errorMsg);
+            error.status = response.status;
+            error.data = data;
+            error.url = url;
+            throw error;
         }
 
         return data;
