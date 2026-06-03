@@ -69,6 +69,10 @@ class ApiClient {
         delete: async (id) => await this.request("/machines/" + id, "DELETE")
     }
 
+    reviews = {
+        create: async (data) => await this.request("/reviews", "POST", data)
+    }
+
      spareParts = {
         getAll: async () => await this.request("/spare-parts", "GET"),
         getLowStock: async () => await this.request("/spare-parts/stock/low", "GET"),
