@@ -22,6 +22,13 @@ export async function initOrdersView() {
 
 async function loadOrders(silent = false) {
     const container = document.getElementById('orders-list');
+    
+    if (silent && container) {
+        const activeInputs = Array.from(container.querySelectorAll("select[id^='review-rating-'], textarea[id^='review-comment-']"));
+        const hasUnsavedChanges = activeInputs.some(input => input.value !== "" || document.activeElement === input);
+        if (hasUnsavedChanges) return;
+    }
+
     if (!silent && container) container.innerHTML = `<div class="p-8 text-center text-zinc-500 dark:text-zinc-400">Loading orders...</div>`;
 
     try {
@@ -142,6 +149,34 @@ function renderTable() {
                 ${wo.status === 'in_progress' ? `<button onclick="window.openCloseModal(${wo.id})" class="col-span-2 lg:col-auto w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 md:py-2 px-4 rounded-xl transition-colors text-sm shadow-sm md:shadow-none">Resolve</button>` : ''}
                 ${wo.status !== 'closed' ? `<button onclick="window.editOrder(${wo.id})" class="admin-only col-span-1 lg:col-auto w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-bold py-3 md:py-2 px-4 rounded-xl transition-colors text-sm">Edit</button>` : ''}
                 <button onclick="window.deleteOrder(${wo.id})" class="admin-only col-span-1 lg:col-auto w-full bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 font-bold py-3 md:py-2 px-4 rounded-xl transition-colors text-sm">Delete</button>
+            </div>
+            
+            <div class="md:col-span-12 w-full mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <form onsubmit="window.submitReview(event, ${wo.id})" class="flex flex-col sm:flex-row gap-3 items-end sm:items-start" id="review-form-${wo.id}">
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Puntuación</label>
+                        <select id="review-rating-${wo.id}" required class="w-full sm:w-24 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-sm bg-white dark:bg-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-yellow-500">
+                            <option value="">--</option>
+                            <option value="5">5</option>
+                            <option value="4">4</option>
+                            <option value="3">3</option>
+                            <option value="2">2</option>
+                            <option value="1">1</option>
+                        </select>
+                    </div>
+                    <div class="w-full flex-1">
+                        <label class="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Comentario</label>
+                        <textarea id="review-comment-${wo.id}" required rows="1" class="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-sm bg-white dark:bg-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Escribe tu reseña de la orden..."></textarea>
+                    </div>
+                    <button type="submit" class="w-full sm:w-auto bg-yellow-500 text-zinc-950 font-bold py-2 px-4 rounded-lg hover:bg-yellow-400 transition-all text-sm h-[38px] self-end hidden sm:block">
+                        Enviar
+                    </button>
+                    <button type="submit" class="w-full bg-yellow-500 text-zinc-950 font-bold py-3 rounded-lg hover:bg-yellow-400 transition-all text-sm sm:hidden mt-2">
+                        Enviar Reseña
+                    </button>
+                </form>
+                <div id="review-display-${wo.id}" class="hidden mt-3 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg text-sm text-zinc-700 dark:text-zinc-300">
+                </div>
             </div>
         </div>
         `;
@@ -326,4 +361,29 @@ window.deleteOrder = async (id) => {
         }
     }
 };
+
+window.submitReview = async (event, workOrderId) => {
+    event.preventDefault();
+    const rating = document.getElementById(`review-rating-${workOrderId}`).value;
+    const comment = document.getElementById(`review-comment-${workOrderId}`).value;
+
+    try {
+        await api.reviews.create({
+            work_order_id: workOrderId,
+            nota: parseInt(rating, 10),
+            comentario: comment
+        });
+        
+        notify.success("Reseña enviada con exito");
+        
+        const display = document.getElementById(`review-display-${workOrderId}`);
+        display.innerHTML = `<strong>Puntuación:</strong> ${rating}/5 <br/> <strong>Comentario:</strong> ${comment}`;
+        display.classList.remove('hidden');
+        
+        document.getElementById(`review-form-${workOrderId}`).reset();
+    } catch (err) {
+        notify.error("Error al enviar la reseña: " + err.message);
+    }
+};
+
 window.removePart = (index) => { repuestosAnadidos.splice(index, 1); renderPartsList(); };
